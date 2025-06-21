@@ -1,19 +1,18 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Tag } from '../types';
+import { Tag as TagType } from '../types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Edit } from 'lucide-react';
+import { Plus, Trash2, Edit, Tag as TagIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const TagsTab = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [tags, setTags] = useState<Tag[]>([]);
+  const [tags, setTags] = useState<TagType[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -34,14 +33,14 @@ const TagsTab = () => {
     const savedTags = localStorage.getItem('pm_tags');
     if (savedTags) {
       const allTags = JSON.parse(savedTags);
-      setTags(allTags.filter((t: Tag) => t.userId === user.id));
+      setTags(allTags.filter((t: TagType) => t.userId === user.id));
     }
   };
 
   const saveTag = () => {
     if (!user || !formData.name.trim()) return;
 
-    const newTag: Tag = {
+    const newTag: TagType = {
       id: Date.now().toString(),
       userId: user.id,
       name: formData.name.trim(),
@@ -68,7 +67,7 @@ const TagsTab = () => {
     const savedTags = localStorage.getItem('pm_tags');
     if (savedTags) {
       const allTags = JSON.parse(savedTags);
-      const filteredTags = allTags.filter((t: Tag) => t.id !== tagId);
+      const filteredTags = allTags.filter((t: TagType) => t.id !== tagId);
       localStorage.setItem('pm_tags', JSON.stringify(filteredTags));
       loadTags();
       
@@ -165,7 +164,7 @@ const TagsTab = () => {
       {tags.length === 0 && (
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Tag className="w-8 h-8 text-slate-400" />
+            <TagIcon className="w-8 h-8 text-slate-400" />
           </div>
           <h3 className="text-xl font-semibold text-white mb-2">No tags yet</h3>
           <p className="text-slate-400">Create tags to organize your passwords.</p>
