@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Tag as TagType } from '../types';
@@ -264,11 +265,11 @@ const TagsTab = () => {
               <div className="flex items-start justify-between mb-2">
                 <Badge
                   style={{ backgroundColor: tag.color }}
-                  className="text-white font-medium"
+                  className="text-white font-medium whitespace-normal break-words flex-1 mr-2 min-h-6 py-1 px-2 leading-tight"
                 >
                   {tag.name}
                 </Badge>
-                <div className="flex space-x-1">
+                <div className="flex space-x-1 flex-shrink-0">
                   <Button
                     size="sm"
                     variant="ghost"
