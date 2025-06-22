@@ -69,6 +69,26 @@ const TagsTab = () => {
       return;
     }
 
+    // Validate tag name length
+    if (formData.name.trim().length > 40) {
+      toast({
+        title: "Error",
+        description: "Tag name must be 40 characters or less.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate description length
+    if (formData.description.length > 255) {
+      toast({
+        title: "Error",
+        description: "Tag description must be 255 characters or less.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Check for duplicate names
     if (checkTagNameExists(formData.name.trim(), editingTag?.id)) {
       toast({
@@ -180,7 +200,11 @@ const TagsTab = () => {
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
                 className="bg-slate-700/50 border-slate-600 text-white"
                 placeholder="e.g., work, personal, banking"
+                maxLength={40}
               />
+              <p className="text-xs text-slate-400 mt-1">
+                {formData.name.length}/40 characters
+              </p>
             </div>
             <div>
               <Label className="text-slate-300">Description</Label>
@@ -189,7 +213,11 @@ const TagsTab = () => {
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 className="bg-slate-700/50 border-slate-600 text-white"
                 placeholder="Optional description for this tag"
+                maxLength={255}
               />
+              <p className="text-xs text-slate-400 mt-1">
+                {formData.description.length}/255 characters
+              </p>
             </div>
             <div>
               <Label className="text-slate-300">Color</Label>
