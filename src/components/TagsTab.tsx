@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Tag as TagType } from '../types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Edit, Tag as TagIcon, Palette } from 'lucide-react';
@@ -208,12 +208,13 @@ const TagsTab = () => {
             </div>
             <div>
               <Label className="text-slate-300">Description</Label>
-              <Input
+              <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 className="bg-slate-700/50 border-slate-600 text-white"
                 placeholder="Optional description for this tag"
                 maxLength={255}
+                rows={3}
               />
               <p className="text-xs text-slate-400 mt-1">
                 {formData.description.length}/255 characters
@@ -287,7 +288,7 @@ const TagsTab = () => {
                 </div>
               </div>
               {tag.description && (
-                <p className="text-sm text-slate-300 mb-2">{tag.description}</p>
+                <p className="text-sm text-slate-300 mb-2 whitespace-pre-wrap">{tag.description}</p>
               )}
               <p className="text-xs text-slate-400">
                 Created {new Date(tag.createdAt).toLocaleDateString()}
