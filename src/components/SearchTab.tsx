@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { PasswordEntry } from '../types';
+import { PasswordEntry, Tag } from '../types';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,11 +14,13 @@ const SearchTab = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [filteredPasswords, setFilteredPasswords] = useState<PasswordEntry[]>([]);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadPasswords();
+    loadTags();
   }, [user]);
 
   useEffect(() => {
@@ -27,15 +29,22 @@ const SearchTab = () => {
       return;
     }
 
-    const filtered = passwords.filter(password =>
-      password.site.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      password.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      password.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (password.notes && password.notes.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filtered = passwords.filter(password => {
+      const matchesSite = password.site.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesUsername = password.username.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesNotes = password.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Check if any assigned tags match
+      const passwordTags = tags.filter(tag => password.tagIds.includes(tag.id));
+      const matchesTags = passwordTags.some(tag => 
+        tag.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      
+      return matchesSite || matchesUsername || matchesNotes || matchesTags;
+    });
 
     setFilteredPasswords(filtered);
-  }, [searchTerm, passwords]);
+  }, [searchTerm, passwords, tags]);
 
   const loadPasswords = () => {
     if (!user) return;
@@ -43,6 +52,15 @@ const SearchTab = () => {
     if (savedPasswords) {
       const allPasswords = JSON.parse(savedPasswords);
       setPasswords(allPasswords.filter((p: PasswordEntry) => p.userId === user.id));
+    }
+  };
+
+  const loadTags = () => {
+    if (!user) return;
+    const savedTags = localStorage.getItem('pm_tags');
+    if (savedTags) {
+      const allTags = JSON.parse(savedTags);
+      setTags(allTags.filter((t: Tag) => t.userId === user.id));
     }
   };
 
@@ -62,6 +80,10 @@ const SearchTab = () => {
       title: "Copied",
       description: `${type} copied to clipboard.`,
     });
+  };
+
+  const getPasswordTags = (tagIds: string[]) => {
+    return tags.filter(tag => tagIds.includes(tag.id));
   };
 
   return (
@@ -87,65 +109,72 @@ const SearchTab = () => {
       )}
 
       <div className="grid gap-4">
-        {filteredPasswords.map((password) => (
-          <Card key={password.id} className="bg-slate-800/50 border-slate-700">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-white">{password.site}</h3>
-                  <p className="text-slate-400">{password.username}</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => togglePasswordVisibility(password.id)}
-                    className="text-slate-300 hover:text-white"
-                  >
-                    {visiblePasswords.has(password.id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => copyToClipboard(password.password, 'Password')}
-                    className="text-slate-300 hover:text-white"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-slate-400">Password:</span>
-                  <span className="text-white font-mono">
-                    {visiblePasswords.has(password.id) ? password.password : '••••••••••••'}
-                  </span>
-                </div>
-                
-                {password.tags.length > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-slate-400">Tags:</span>
-                    <div className="flex space-x-1">
-                      {password.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="bg-blue-500/20 text-blue-300">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {password.notes && (
+        {filteredPasswords.map((password) => {
+          const passwordTags = getPasswordTags(password.tagIds);
+          return (
+            <Card key={password.id} className="bg-slate-800/50 border-slate-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <span className="text-slate-400">Notes:</span>
-                    <p className="text-slate-300 text-sm mt-1">{password.notes}</p>
+                    <h3 className="text-xl font-semibold text-white">{password.site}</h3>
+                    <p className="text-slate-400">{password.username}</p>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => togglePasswordVisibility(password.id)}
+                      className="text-slate-300 hover:text-white"
+                    >
+                      {visiblePasswords.has(password.id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyToClipboard(password.password, 'Password')}
+                      className="text-slate-300 hover:text-white"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-slate-400">Password:</span>
+                    <span className="text-white font-mono">
+                      {visiblePasswords.has(password.id) ? password.password : '••••••••••••'}
+                    </span>
+                  </div>
+                  
+                  {passwordTags.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-slate-400">Tags:</span>
+                      <div className="flex space-x-1">
+                        {passwordTags.map((tag) => (
+                          <Badge
+                            key={tag.id}
+                            style={{ backgroundColor: tag.color }}
+                            className="text-white font-medium whitespace-normal break-words"
+                          >
+                            {tag.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {password.notes && (
+                    <div>
+                      <span className="text-slate-400">Notes:</span>
+                      <p className="text-slate-300 text-sm mt-1">{password.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {searchTerm && filteredPasswords.length === 0 && (

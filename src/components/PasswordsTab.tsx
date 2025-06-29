@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Key, Search, Import, Export } from 'lucide-react';
+import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Key, Search, Import, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import TagDropzone from './TagDropzone';
 import { 
