@@ -6,6 +6,7 @@ export interface User {
   isAdmin: boolean;
   createdAt: Date;
   lastLogin?: Date;
+  encryptionKey?: string;
 }
 
 export interface PasswordEntry {
@@ -14,10 +15,11 @@ export interface PasswordEntry {
   site: string;
   username: string;
   password: string;
-  tags: string[];
+  tagIds: string[]; // Changed from tags to tagIds for many-to-many relationship
   createdAt: Date;
   updatedAt: Date;
   notes?: string;
+  salt?: string; // For per-password encryption salt
 }
 
 export interface Tag {
@@ -34,4 +36,9 @@ export interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+}
+
+export interface PasswordTag {
+  passwordId: string;
+  tagId: string;
 }
