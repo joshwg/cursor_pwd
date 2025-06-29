@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { PasswordEntry, Tag } from '../types';
@@ -280,7 +279,7 @@ const PasswordsTab = () => {
             onClick={exportData}
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
           >
-            <Export className="w-4 h-4 mr-2" />
+            <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
           <Button
