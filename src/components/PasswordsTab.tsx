@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Key, Search, Import, Download } from 'lucide-react';
+import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Search, Download, Upload, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import TagDropzone from './TagDropzone';
 import { getContrastColor } from '../utils/colorUtils';
@@ -20,6 +20,7 @@ import {
   exportToCsv 
 } from '../utils/dataUtils';
 import { encrypt, decrypt, generateSalt, generateUserKey } from '../utils/encryption';
+import { saveDataWithBackup } from '../utils/dataBackup';
 
 const PasswordsTab = () => {
   const { user } = useAuth();
@@ -270,6 +271,120 @@ const PasswordsTab = () => {
     });
   };
 
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const csv = e.target?.result as string;
+        const lines = csv.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        
+        const importedPasswords: any[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          const passwordData: any = {};
+          
+          headers.forEach((header, index) => {
+            passwordData[header] = values[index] || '';
+          });
+          
+          if (passwordData.site && passwordData.username && passwordData.password) {
+            const encryptionKey = ensureUserEncryptionKey();
+            const salt = generateSalt();
+            
+            // Find or create tags
+            const tagNames = passwordData.tags ? passwordData.tags.split(';').filter((t: string) => t.trim()) : [];
+            const tagIds: string[] = [];
+            
+            tagNames.forEach((tagName: string) => {
+              let existingTag = tags.find(t => t.name.toLowerCase() === tagName.trim().toLowerCase());
+              if (!existingTag) {
+                // Create new tag
+                const newTag: Tag = {
+                  id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                  userId: user!.id,
+                  name: tagName.trim(),
+                  description: '',
+                  color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
+                  createdAt: new Date()
+                };
+                tags.push(newTag);
+                existingTag = newTag;
+              }
+              tagIds.push(existingTag.id);
+            });
+            
+            const newPassword: PasswordEntry = {
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+              userId: user!.id,
+              site: passwordData.site,
+              username: passwordData.username,
+              password: encrypt(passwordData.password, encryptionKey, salt),
+              tagIds,
+              notes: passwordData.notes ? encrypt(passwordData.notes, encryptionKey, salt) : '',
+              salt,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+            
+            importedPasswords.push(newPassword);
+          }
+        }
+        
+        if (importedPasswords.length > 0) {
+          const savedPasswords = localStorage.getItem('pm_passwords');
+          const allPasswords = savedPasswords ? JSON.parse(savedPasswords) : [];
+          allPasswords.push(...importedPasswords);
+          saveDataWithBackup('pm_passwords', allPasswords);
+          
+          // Update tags in storage
+          const savedTags = localStorage.getItem('pm_tags');
+          const allTags = savedTags ? JSON.parse(savedTags) : [];
+          const updatedTags = [...allTags];
+          tags.forEach(tag => {
+            if (!allTags.find((t: Tag) => t.id === tag.id)) {
+              updatedTags.push(tag);
+            }
+          });
+          saveDataWithBackup('pm_tags', updatedTags);
+          
+          loadPasswords();
+          loadTags();
+          
+          toast({
+            title: "Import Complete",
+            description: `Successfully imported ${importedPasswords.length} passwords.`,
+          });
+        } else {
+          toast({
+            title: "Import Failed",
+            description: "No valid password entries found in the CSV file.",
+            variant: "destructive"
+          });
+        }
+        
+      } catch (error) {
+        console.error('Import error:', error);
+        toast({
+          title: "Import Failed",
+          description: "Failed to parse CSV file. Please check the format.",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    reader.readAsText(file);
+    // Reset file input
+    event.target.value = '';
+  };
+
   const getPasswordTags = (tagIds: string[]) => {
     const safeTagIds = tagIds || []; // Ensure tagIds is an array
     return tags.filter(tag => safeTagIds.includes(tag.id));
@@ -280,10 +395,25 @@ const PasswordsTab = () => {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-3xl font-bold text-white">Your Passwords</h2>
         <div className="flex space-x-2">
+          <input
+            type="file"
+            accept=".csv"
+            onChange={importData}
+            className="hidden"
+            id="import-file"
+          />
+          <Button
+            variant="outline"
+            onClick={() => document.getElementById('import-file')?.click()}
+            className="bg-slate-800/50 border-slate-600 text-white hover:bg-slate-700/50"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Import CSV
+          </Button>
           <Button
             variant="outline"
             onClick={exportData}
-            className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            className="bg-slate-800/50 border-slate-600 text-white hover:bg-slate-700/50"
           >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
