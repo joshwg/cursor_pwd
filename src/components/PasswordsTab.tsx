@@ -646,7 +646,7 @@ const PasswordsTab = () => {
       </Dialog>
 
       {/* Password Cards */}
-      <div className="grid gap-4 mt-10">
+      <div className="grid gap-4 mt-20">
         {filteredPasswords.map((password) => {
           const passwordTags = getPasswordTags(password.tagIds);
           return (
