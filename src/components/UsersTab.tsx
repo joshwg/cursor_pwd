@@ -7,14 +7,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, User as UserIcon, Shield, Trash2 } from 'lucide-react';
+import { Plus, User as UserIcon, Shield, Trash2, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import ChangePasswordDialog from './ChangePasswordDialog';
 
 const UsersTab = () => {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -98,6 +101,11 @@ const UsersTab = () => {
         description: "The user has been removed.",
       });
     }
+  };
+
+  const openPasswordReset = (userId: string) => {
+    setSelectedUserId(userId);
+    setShowPasswordDialog(true);
   };
 
   if (!currentUser?.isAdmin) {
@@ -197,16 +205,26 @@ const UsersTab = () => {
                   </div>
                 </div>
                 
-                {user.id !== currentUser.id && (
+                <div className="flex space-x-2">
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => deleteUser(user.id)}
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    onClick={() => openPasswordReset(user.id)}
+                    className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Key className="w-4 h-4" />
                   </Button>
-                )}
+                  {user.id !== currentUser.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteUser(user.id)}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               
               {user.lastLogin && (
@@ -218,6 +236,15 @@ const UsersTab = () => {
           </Card>
         ))}
       </div>
+
+      <ChangePasswordDialog
+        open={showPasswordDialog}
+        onOpenChange={(open) => {
+          setShowPasswordDialog(open);
+          if (!open) setSelectedUserId(null);
+        }}
+        targetUserId={selectedUserId || undefined}
+      />
     </div>
   );
 };

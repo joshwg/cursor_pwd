@@ -10,10 +10,13 @@ import { useToast } from '@/hooks/use-toast';
 interface ChangePasswordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  targetUserId?: string; // For admin password reset
 }
 
-const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ open, onOpenChange }) => {
+const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ open, onOpenChange, targetUserId }) => {
   const { user } = useAuth();
+  const isAdminReset = targetUserId && user?.isAdmin;
+  const targetUser = isAdminReset ? JSON.parse(localStorage.getItem('pm_users') || '[]').find((u: any) => u.id === targetUserId) : user;
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     currentPassword: '',
@@ -54,8 +57,8 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ open, onOpe
     setIsLoading(true);
 
     try {
-      // Validate current password
-      if (!formData.currentPassword) {
+      // Validate current password (only for non-admin resets)
+      if (!isAdminReset && !formData.currentPassword) {
         toast({
           title: "Error",
           description: "Current password is required.",
@@ -84,11 +87,11 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ open, onOpe
         return;
       }
 
-      // Check current password
+      // Check current password (only for non-admin resets)
       const users = JSON.parse(localStorage.getItem('pm_users') || '[]');
-      const currentUser = users.find((u: any) => u.id === user.id);
+      const currentUser = users.find((u: any) => u.id === (targetUserId || user.id));
       
-      if (!currentUser || currentUser.password !== formData.currentPassword) {
+      if (!isAdminReset && (!currentUser || currentUser.password !== formData.currentPassword)) {
         toast({
           title: "Error",
           description: "Current password is incorrect.",
@@ -99,15 +102,17 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ open, onOpe
 
       // Update password
       currentUser.password = formData.newPassword;
-      const updatedUsers = users.map((u: any) => u.id === user.id ? currentUser : u);
+      const updatedUsers = users.map((u: any) => u.id === (targetUserId || user.id) ? currentUser : u);
       localStorage.setItem('pm_users', JSON.stringify(updatedUsers));
 
-      // Update current user session
-      localStorage.setItem('pm_current_user', JSON.stringify(currentUser));
+      // Update current user session if changing own password
+      if (!targetUserId || targetUserId === user.id) {
+        localStorage.setItem('pm_current_user', JSON.stringify(currentUser));
+      }
 
       toast({
         title: "Password Changed",
-        description: "Your password has been updated successfully.",
+        description: isAdminReset ? `Password updated for ${targetUser?.username}` : "Your password has been updated successfully.",
       });
 
       resetForm();
@@ -129,32 +134,34 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ open, onOpe
         <DialogHeader>
           <DialogTitle className="text-white flex items-center">
             <Lock className="w-5 h-5 mr-2" />
-            Change Password
+            {isAdminReset ? `Reset Password for ${targetUser?.username}` : 'Change Password'}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleChangePassword} className="space-y-4">
-          <div>
-            <Label className="text-slate-300">Current Password *</Label>
-            <div className="relative">
-              <Input
-                type={showPasswords.current ? "text" : "password"}
-                value={formData.currentPassword}
-                onChange={(e) => setFormData({...formData, currentPassword: e.target.value})}
-                className="bg-slate-700/50 border-slate-600 text-white pr-10"
-                placeholder="Enter current password"
-                required
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
-                onClick={() => togglePasswordVisibility('current')}
-              >
-                {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </Button>
+          {!isAdminReset && (
+            <div>
+              <Label className="text-slate-300">Current Password *</Label>
+              <div className="relative">
+                <Input
+                  type={showPasswords.current ? "text" : "password"}
+                  value={formData.currentPassword}
+                  onChange={(e) => setFormData({...formData, currentPassword: e.target.value})}
+                  className="bg-slate-700/50 border-slate-600 text-white pr-10"
+                  placeholder="Enter current password"
+                  required
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                  onClick={() => togglePasswordVisibility('current')}
+                >
+                  {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
           
           <div>
             <Label className="text-slate-300">New Password *</Label>

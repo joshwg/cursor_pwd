@@ -14,6 +14,40 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
+
+  // Idle timeout - 30 minutes
+  const IDLE_TIMEOUT = 30 * 60 * 1000;
+
+  // Track user activity
+  useEffect(() => {
+    const updateActivity = () => setLastActivity(Date.now());
+    
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => {
+      document.addEventListener(event, updateActivity, true);
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, updateActivity, true);
+      });
+    };
+  }, []);
+
+  // Check for idle timeout
+  useEffect(() => {
+    if (!user) return;
+
+    const checkIdle = () => {
+      if (Date.now() - lastActivity > IDLE_TIMEOUT) {
+        logout();
+      }
+    };
+
+    const interval = setInterval(checkIdle, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [user, lastActivity]);
 
   useEffect(() => {
     // Initialize with admin user if no users exist
