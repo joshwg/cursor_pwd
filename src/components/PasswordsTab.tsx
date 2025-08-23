@@ -492,7 +492,7 @@ const PasswordsTab = () => {
         {/* Search Area - Right 60% */}
         <div className="w-3/5">
           <h3 className="text-lg font-semibold text-white mb-3">Search & Filter</h3>
-          <div className="space-y-3">
+          <div className="space-y-3 h-full flex flex-col">
             {/* Text Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -507,7 +507,7 @@ const PasswordsTab = () => {
 
             {/* Tag Drop Zone */}
             <div
-              className="bg-slate-800/30 border-2 border-dashed border-slate-600 rounded-lg p-3 h-full transition-colors hover:border-slate-500"
+              className="bg-slate-800/30 border-2 border-dashed border-slate-600 rounded-lg p-3 flex-1 transition-colors hover:border-slate-500"
               onDrop={handleTagDrop}
               onDragOver={handleTagDragOver}
             >
