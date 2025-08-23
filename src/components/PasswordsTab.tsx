@@ -99,29 +99,44 @@ const PasswordsTab = () => {
   const filterPasswords = () => {
     let filtered = passwords;
 
-    // Filter by selected tags first
-    if (selectedTagIds.length > 0) {
+    // Apply combined filtering logic
+    if (selectedTagIds.length > 0 || searchTerm.trim()) {
       filtered = filtered.filter(password => {
         const tagIds = password.tagIds || [];
-        return selectedTagIds.some(selectedTagId => tagIds.includes(selectedTagId));
-      });
-    }
-
-    // Then filter by search term
-    if (searchTerm.trim()) {
-      filtered = filtered.filter(password => {
-        const matchesSite = password.site.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesUsername = password.username.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesNotes = password.notes?.toLowerCase().includes(searchTerm.toLowerCase());
         
-        // Check if any assigned tags match - ensure tagIds is an array
-        const tagIds = password.tagIds || [];
-        const passwordTags = tags.filter(tag => tagIds.includes(tag.id));
-        const matchesTags = passwordTags.some(tag => 
-          tag.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        // Check if password has ALL selected tags
+        const hasAllTags = selectedTagIds.length === 0 || 
+          selectedTagIds.every(selectedTagId => tagIds.includes(selectedTagId));
         
-        return matchesSite || matchesUsername || matchesNotes || matchesTags;
+        // If only tags are selected (no search term), just check tags
+        if (selectedTagIds.length > 0 && !searchTerm.trim()) {
+          return hasAllTags;
+        }
+        
+        // If search term exists, check site OR username match
+        if (searchTerm.trim()) {
+          const matchesSite = password.site.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchesUsername = password.username.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchesNotes = password.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+          
+          // Check if any assigned tags match
+          const passwordTags = tags.filter(tag => tagIds.includes(tag.id));
+          const matchesTags = passwordTags.some(tag => 
+            tag.name.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+          
+          const matchesSearchTerm = matchesSite || matchesUsername || matchesNotes || matchesTags;
+          
+          // If tags are also selected, require both conditions
+          if (selectedTagIds.length > 0) {
+            return matchesSearchTerm && hasAllTags;
+          }
+          
+          // If no tags selected, just match search term
+          return matchesSearchTerm;
+        }
+        
+        return true;
       });
     }
 
