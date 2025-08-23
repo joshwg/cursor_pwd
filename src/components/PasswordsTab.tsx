@@ -103,7 +103,7 @@ const PasswordsTab = () => {
     if (selectedTagIds.length > 0) {
       filtered = filtered.filter(password => {
         const tagIds = password.tagIds || [];
-        return selectedTagIds.every(selectedTagId => tagIds.includes(selectedTagId));
+        return selectedTagIds.some(selectedTagId => tagIds.includes(selectedTagId));
       });
     }
 
