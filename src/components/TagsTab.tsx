@@ -269,7 +269,7 @@ const TagsTab = () => {
                     backgroundColor: tag.color,
                     color: getContrastColor(tag.color)
                   }}
-                  className="font-medium whitespace-normal break-words flex-1 mr-2 min-h-6 py-1 px-2 leading-tight"
+                  className="font-medium break-all-force flex-1 mr-2 min-h-6 py-1 px-2 leading-tight max-w-full"
                 >
                   {tag.name}
                 </Badge>

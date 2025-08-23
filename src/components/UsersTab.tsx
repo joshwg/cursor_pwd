@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, User as UserIcon, Shield, Trash2, Key } from 'lucide-react';
+import { Plus, User as UserIcon, Shield, Trash2, Key, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ChangePasswordDialog from './ChangePasswordDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const UsersTab = () => {
   const { user: currentUser } = useAuth();
@@ -108,6 +109,33 @@ const UsersTab = () => {
     setShowPasswordDialog(true);
   };
 
+  const toggleUserAdmin = (userId: string) => {
+    if (userId === currentUser?.id) {
+      toast({
+        title: "Error",
+        description: "You cannot change your own admin status.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const savedUsers = localStorage.getItem('pm_users');
+    if (savedUsers) {
+      const allUsers = JSON.parse(savedUsers);
+      const updatedUsers = allUsers.map((u: User) => 
+        u.id === userId ? { ...u, isAdmin: !u.isAdmin } : u
+      );
+      localStorage.setItem('pm_users', JSON.stringify(updatedUsers));
+      loadUsers();
+      
+      const targetUser = allUsers.find((u: User) => u.id === userId);
+      toast({
+        title: "Admin Status Updated",
+        description: `${targetUser?.username} is ${targetUser?.isAdmin ? 'no longer' : 'now'} an administrator.`,
+      });
+    }
+  };
+
   if (!currentUser?.isAdmin) {
     return (
       <div className="text-center py-12">
@@ -121,7 +149,8 @@ const UsersTab = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold text-white">Manage Users</h2>
         <Button
@@ -206,23 +235,56 @@ const UsersTab = () => {
                 </div>
                 
                 <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => openPasswordReset(user.id)}
-                    className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-                  >
-                    <Key className="w-4 h-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openPasswordReset(user.id)}
+                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                      >
+                        <Key className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Reset password</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
                   {user.id !== currentUser.id && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => deleteUser(user.id)}
-                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => toggleUserAdmin(user.id)}
+                            className={user.isAdmin ? "text-orange-400 hover:text-orange-300 hover:bg-orange-500/10" : "text-green-400 hover:text-green-300 hover:bg-green-500/10"}
+                          >
+                            <ShieldCheck className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{user.isAdmin ? 'Remove admin privileges' : 'Grant admin privileges'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteUser(user.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Delete user</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </>
                   )}
                 </div>
               </div>
@@ -245,7 +307,8 @@ const UsersTab = () => {
         }}
         targetUserId={selectedUserId || undefined}
       />
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
