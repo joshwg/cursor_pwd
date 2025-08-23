@@ -387,15 +387,30 @@ const PasswordsTab = () => {
           const savedPasswords = localStorage.getItem('pm_passwords');
           const allPasswords = savedPasswords ? JSON.parse(savedPasswords) : [];
           
+          let updatedCount = 0;
+          let addedCount = 0;
+          
           // Process each imported password to either update existing or add new
           importedPasswords.forEach(importedPassword => {
-            const existingIndex = allPasswords.findIndex((p: PasswordEntry) => p.id === importedPassword.id);
+            // Find existing password in storage by site, username, and userId
+            const existingIndex = allPasswords.findIndex((p: PasswordEntry) => 
+              p.site.toLowerCase() === importedPassword.site.toLowerCase() &&
+              p.username.toLowerCase() === importedPassword.username.toLowerCase() &&
+              p.userId === importedPassword.userId
+            );
+            
             if (existingIndex !== -1) {
-              // Update existing password
-              allPasswords[existingIndex] = importedPassword;
+              // Update existing password, keep the original ID and createdAt
+              allPasswords[existingIndex] = {
+                ...importedPassword,
+                id: allPasswords[existingIndex].id,
+                createdAt: allPasswords[existingIndex].createdAt
+              };
+              updatedCount++;
             } else {
               // Add new password
               allPasswords.push(importedPassword);
+              addedCount++;
             }
           });
           
@@ -417,7 +432,7 @@ const PasswordsTab = () => {
           
           toast({
             title: "Import Complete",
-            description: `Successfully imported ${importedPasswords.length} passwords.`,
+            description: `Successfully added ${addedCount} new passwords and updated ${updatedCount} existing passwords.`,
           });
         } else {
           toast({
