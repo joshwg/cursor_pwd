@@ -104,8 +104,9 @@ const PasswordsTab = () => {
       const matchesUsername = password.username.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesNotes = password.notes?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // Check if any assigned tags match
-      const passwordTags = tags.filter(tag => password.tagIds.includes(tag.id));
+      // Check if any assigned tags match - ensure tagIds is an array
+      const tagIds = password.tagIds || [];
+      const passwordTags = tags.filter(tag => tagIds.includes(tag.id));
       const matchesTags = passwordTags.some(tag => 
         tag.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -248,7 +249,8 @@ const PasswordsTab = () => {
 
   const exportData = () => {
     const exportPasswords = passwords.map(p => {
-      const passwordTags = tags.filter(tag => p.tagIds.includes(tag.id)).map(tag => tag.name);
+      const tagIds = p.tagIds || []; // Ensure tagIds is an array
+      const passwordTags = tags.filter(tag => tagIds.includes(tag.id)).map(tag => tag.name);
       return {
         site: p.site,
         username: p.username,
@@ -269,7 +271,8 @@ const PasswordsTab = () => {
   };
 
   const getPasswordTags = (tagIds: string[]) => {
-    return tags.filter(tag => tagIds.includes(tag.id));
+    const safeTagIds = tagIds || []; // Ensure tagIds is an array
+    return tags.filter(tag => safeTagIds.includes(tag.id));
   };
 
   return (

@@ -19,8 +19,9 @@ const TagDropzone: React.FC<TagDropzoneProps> = ({
 }) => {
   const [dragOver, setDragOver] = useState(false);
 
-  const selectedTags = availableTags.filter(tag => selectedTagIds.includes(tag.id));
-  const unselectedTags = availableTags.filter(tag => !selectedTagIds.includes(tag.id));
+  const safeSelectedTagIds = selectedTagIds || []; // Ensure selectedTagIds is an array
+  const selectedTags = availableTags.filter(tag => safeSelectedTagIds.includes(tag.id));
+  const unselectedTags = availableTags.filter(tag => !safeSelectedTagIds.includes(tag.id));
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -36,8 +37,8 @@ const TagDropzone: React.FC<TagDropzoneProps> = ({
     setDragOver(false);
     
     const tagId = e.dataTransfer.getData('text/plain');
-    if (tagId && !selectedTagIds.includes(tagId)) {
-      onTagsChange([...selectedTagIds, tagId]);
+    if (tagId && !safeSelectedTagIds.includes(tagId)) {
+      onTagsChange([...safeSelectedTagIds, tagId]);
     }
   };
 
@@ -46,12 +47,12 @@ const TagDropzone: React.FC<TagDropzoneProps> = ({
   };
 
   const removeTag = (tagId: string) => {
-    onTagsChange(selectedTagIds.filter(id => id !== tagId));
+    onTagsChange(safeSelectedTagIds.filter(id => id !== tagId));
   };
 
   const addTag = (tagId: string) => {
-    if (!selectedTagIds.includes(tagId)) {
-      onTagsChange([...selectedTagIds, tagId]);
+    if (!safeSelectedTagIds.includes(tagId)) {
+      onTagsChange([...safeSelectedTagIds, tagId]);
     }
   };
 
