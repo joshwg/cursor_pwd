@@ -565,6 +565,9 @@ const PasswordsTab = () => {
         </div>
       )}
 
+      {/* Spacer */}
+      <div className="h-10"></div>
+
       {/* Add/Edit Form Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
         <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
