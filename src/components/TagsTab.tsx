@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Edit, Tag as TagIcon, Upload, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getContrastColor } from '../utils/colorUtils';
+import { getContrastColor, ensureHexColor } from '../utils/colorUtils';
 import { exportToCsv, checkTagExists } from '../utils/dataUtils';
 import { saveDataWithBackup } from '../utils/dataBackup';
 
@@ -187,7 +187,7 @@ const TagsTab = () => {
     const exportData = tags.map(tag => ({
       name: tag.name,
       description: tag.description,
-      color: tag.color,
+      color: ensureHexColor(tag.color),
       createdAt: new Date(tag.createdAt).toISOString()
     }));
 
