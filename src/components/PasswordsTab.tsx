@@ -392,23 +392,14 @@ const PasswordsTab = () => {
           
           // Process each imported password to either update existing or add new
           importedPasswords.forEach(importedPassword => {
-            // Find existing password in storage by site, username, and userId
-            const existingIndex = allPasswords.findIndex((p: PasswordEntry) => 
-              p.site.toLowerCase() === importedPassword.site.toLowerCase() &&
-              p.username.toLowerCase() === importedPassword.username.toLowerCase() &&
-              p.userId === importedPassword.userId
-            );
-            
-            if (existingIndex !== -1) {
-              // Update existing password, keep the original ID and createdAt
-              allPasswords[existingIndex] = {
-                ...importedPassword,
-                id: allPasswords[existingIndex].id,
-                createdAt: allPasswords[existingIndex].createdAt
-              };
+            // Since we already checked for duplicates above, just apply the changes directly
+            if (importedPassword.id && allPasswords.find((p: PasswordEntry) => p.id === importedPassword.id)) {
+              // This is an update - replace the existing password
+              const existingIndex = allPasswords.findIndex((p: PasswordEntry) => p.id === importedPassword.id);
+              allPasswords[existingIndex] = importedPassword;
               updatedCount++;
             } else {
-              // Add new password
+              // This is a new password - add it
               allPasswords.push(importedPassword);
               addedCount++;
             }
