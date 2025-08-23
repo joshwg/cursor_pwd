@@ -556,6 +556,9 @@ const PasswordsTab = () => {
         </div>
       </div>
 
+      {/* Spacer */}
+      <div className="h-10"></div>
+
       {(searchTerm || selectedTagIds.length > 0) && (
         <div className="text-slate-300">
           Found {filteredPasswords.length} result{filteredPasswords.length !== 1 ? 's' : ''} 
@@ -564,9 +567,6 @@ const PasswordsTab = () => {
           {" (limited to 100)"}
         </div>
       )}
-
-      {/* Spacer */}
-      <div className="h-10"></div>
 
       {/* Add/Edit Form Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
