@@ -29,7 +29,11 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
               <Shield className="w-6 h-6 text-white" />
             </div>
             <div>
+<<<<<<< HEAD
               <h1 className="text-xl font-bold text-white">Your Vault</h1>
+=======
+              <h1 className="text-xl font-bold text-white">The Vault</h1>
+>>>>>>> 52e6a477ee4be606b56c64fd0297c1fed1e85a6d
               <p className="text-xs text-slate-400">Password Manager</p>
             </div>
           </div>
