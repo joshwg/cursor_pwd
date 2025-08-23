@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { PasswordEntry, Tag } from '../types';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,10 @@ import { saveDataWithBackup } from '../utils/dataBackup';
 const PasswordsTab = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
+  // Metadata-only storage (site, username, tagIds unencrypted for search)
+  const [passwordsMetadata, setPasswordsMetadata] = useState<PasswordEntry[]>([]);
+  // Only store decrypted versions of filtered results
+  const [decryptedPasswords, setDecryptedPasswords] = useState<Map<string, PasswordEntry>>(new Map());
   const [tags, setTags] = useState<Tag[]>([]);
   const [filteredPasswords, setFilteredPasswords] = useState<PasswordEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +45,8 @@ const PasswordsTab = () => {
     tagIds: [] as string[],
     notes: ''
   });
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadPasswords();
@@ -50,7 +55,7 @@ const PasswordsTab = () => {
 
   useEffect(() => {
     filterPasswords();
-  }, [passwords, searchTerm, tags, selectedTagIds]);
+  }, [passwordsMetadata, searchTerm, tags, selectedTagIds]);
 
   const ensureUserEncryptionKey = () => {
     if (!user) return '';
@@ -74,15 +79,12 @@ const PasswordsTab = () => {
       const allPasswords = JSON.parse(savedPasswords);
       const userPasswords = allPasswords.filter((p: PasswordEntry) => p.userId === user.id);
       
-      // Decrypt passwords and notes
-      const encryptionKey = ensureUserEncryptionKey();
-      const decryptedPasswords = userPasswords.map((p: PasswordEntry) => ({
-        ...p,
-        password: p.salt ? decrypt(p.password, encryptionKey, p.salt) : p.password,
-        notes: p.notes && p.salt ? decrypt(p.notes, encryptionKey, p.salt) : p.notes
-      }));
+      // Store only metadata (site, username, tagIds remain unencrypted for search)
+      // password and notes stay encrypted until needed
+      setPasswordsMetadata(sortPasswordsAlphabetically(userPasswords));
       
-      setPasswords(sortPasswordsAlphabetically(decryptedPasswords));
+      // Clear any existing decrypted passwords
+      setDecryptedPasswords(new Map());
     }
   };
 
@@ -96,10 +98,20 @@ const PasswordsTab = () => {
     }
   };
 
-  const filterPasswords = () => {
-    let filtered = passwords;
+  // Decrypt specific passwords on-demand
+  const decryptPassword = (password: PasswordEntry): PasswordEntry => {
+    const encryptionKey = ensureUserEncryptionKey();
+    return {
+      ...password,
+      password: password.salt ? decrypt(password.password, encryptionKey, password.salt) : password.password,
+      notes: password.notes && password.salt ? decrypt(password.notes, encryptionKey, password.salt) : password.notes
+    };
+  };
 
-    // Apply combined filtering logic
+  const filterPasswords = () => {
+    let filtered = passwordsMetadata;
+
+    // Apply filtering logic (only search unencrypted fields for security/performance)
     if (selectedTagIds.length > 0 || searchTerm.trim()) {
       filtered = filtered.filter(password => {
         const tagIds = password.tagIds || [];
@@ -113,11 +125,10 @@ const PasswordsTab = () => {
           return hasAllTags;
         }
         
-        // If search term exists, check site OR username match
+        // If search term exists, check site OR username (NOT password/notes for security)
         if (searchTerm.trim()) {
           const matchesSite = password.site.toLowerCase().includes(searchTerm.toLowerCase());
           const matchesUsername = password.username.toLowerCase().includes(searchTerm.toLowerCase());
-          const matchesNotes = password.notes?.toLowerCase().includes(searchTerm.toLowerCase());
           
           // Check if any assigned tags match
           const passwordTags = tags.filter(tag => tagIds.includes(tag.id));
@@ -125,7 +136,7 @@ const PasswordsTab = () => {
             tag.name.toLowerCase().includes(searchTerm.toLowerCase())
           );
           
-          const matchesSearchTerm = matchesSite || matchesUsername || matchesNotes || matchesTags;
+          const matchesSearchTerm = matchesSite || matchesUsername || matchesTags;
           
           // If tags are also selected, require both conditions
           if (selectedTagIds.length > 0) {
@@ -140,7 +151,28 @@ const PasswordsTab = () => {
       });
     }
 
-    setFilteredPasswords(limitResults(filtered));
+    // Limit results and decrypt only the filtered passwords
+    const limitedResults = limitResults(filtered);
+    const newDecryptedMap = new Map<string, PasswordEntry>();
+    
+    limitedResults.forEach(password => {
+      // Only decrypt if not already decrypted
+      if (!decryptedPasswords.has(password.id)) {
+        newDecryptedMap.set(password.id, decryptPassword(password));
+      } else {
+        // Keep existing decrypted version
+        newDecryptedMap.set(password.id, decryptedPasswords.get(password.id)!);
+      }
+    });
+    
+    setDecryptedPasswords(newDecryptedMap);
+    
+    // Create filtered array with decrypted passwords
+    const decryptedResults = limitedResults.map(password => 
+      newDecryptedMap.get(password.id)!
+    );
+    
+    setFilteredPasswords(decryptedResults);
   };
 
   const resetForm = () => {
@@ -163,7 +195,7 @@ const PasswordsTab = () => {
     }
 
     // Check for duplicates
-    if (checkPasswordExists(passwords, formData.site.trim(), formData.username.trim(), user.id, editingPassword?.id)) {
+    if (checkPasswordExists(passwordsMetadata, formData.site.trim(), formData.username.trim(), user.id, editingPassword?.id)) {
       toast({
         title: "Error",
         description: "A password for this site and username already exists.",
@@ -274,7 +306,7 @@ const PasswordsTab = () => {
   };
 
   const exportData = () => {
-    const exportPasswords = passwords.map(p => {
+    const exportPasswords = filteredPasswords.map(p => {
       const tagIds = p.tagIds || []; // Ensure tagIds is an array
       const passwordTags = tags.filter(tag => tagIds.includes(tag.id)).map(tag => tag.name);
       return {
@@ -347,7 +379,7 @@ const PasswordsTab = () => {
             });
             
             // Check if password already exists (upsert logic)
-            const existingPassword = passwords.find(p => 
+            const existingPassword = passwordsMetadata.find(p => 
               p.site.toLowerCase() === passwordData.site.toLowerCase() &&
               p.username.toLowerCase() === passwordData.username.toLowerCase() &&
               p.userId === user!.id
