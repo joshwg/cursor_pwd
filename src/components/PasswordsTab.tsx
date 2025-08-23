@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Search, Download, Upload, Key } from 'lucide-react';
+import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Search, Download, Upload, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import TagDropzone from './TagDropzone';
 import { getContrastColor } from '../utils/colorUtils';
@@ -33,6 +33,7 @@ const PasswordsTab = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+  const [hiddenNotes, setHiddenNotes] = useState<Set<string>>(new Set());
   const [showFormPassword, setShowFormPassword] = useState(false);
   const [formData, setFormData] = useState({
     site: '',
@@ -660,22 +661,6 @@ const PasswordsTab = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => togglePasswordVisibility(password.id)}
-                      className="text-slate-300 hover:text-white"
-                    >
-                      {visiblePasswords.has(password.id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard(password.password, 'Password')}
-                      className="text-slate-300 hover:text-white"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
                       onClick={() => startEditPassword(password)}
                       className="text-blue-400 hover:text-blue-300"
                     >
@@ -695,9 +680,25 @@ const PasswordsTab = () => {
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <span className="text-slate-400">Password:</span>
-                    <span className="text-white font-mono break-all">
+                    <span className="text-white font-mono break-all flex-1">
                       {visiblePasswords.has(password.id) ? password.password : '••••••••••••'}
                     </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => togglePasswordVisibility(password.id)}
+                      className="text-slate-300 hover:text-white flex-shrink-0"
+                    >
+                      {visiblePasswords.has(password.id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyToClipboard(password.password, 'Password')}
+                      className="text-slate-300 hover:text-white flex-shrink-0"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
                   </div>
                   
                   {passwordTags.length > 0 && (
@@ -722,8 +723,28 @@ const PasswordsTab = () => {
                   
                   {password.notes && (
                     <div>
-                      <span className="text-slate-400">Notes:</span>
-                      <p className="text-slate-300 text-sm mt-1 whitespace-pre-wrap break-words">{password.notes}</p>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-slate-400">Notes:</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            const newHiddenNotes = new Set(hiddenNotes);
+                            if (hiddenNotes.has(password.id)) {
+                              newHiddenNotes.delete(password.id);
+                            } else {
+                              newHiddenNotes.add(password.id);
+                            }
+                            setHiddenNotes(newHiddenNotes);
+                          }}
+                          className="text-slate-400 hover:text-white p-0 h-auto"
+                        >
+                          {hiddenNotes.has(password.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      {!hiddenNotes.has(password.id) && (
+                        <p className="text-slate-300 text-sm mt-1 whitespace-pre-wrap break-words">{password.notes}</p>
+                      )}
                     </div>
                   )}
                 </div>
