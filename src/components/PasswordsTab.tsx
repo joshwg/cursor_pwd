@@ -461,7 +461,7 @@ const PasswordsTab = () => {
       </div>
 
       {/* Search with Drag & Drop Tags */}
-      <div className="flex gap-4 h-32">
+      <div className="flex gap-4 h-56">
         {/* Available Tags - Left 40% */}
         <div className="w-2/5">
           <h3 className="text-lg font-semibold text-white mb-3">Available Tags</h3>
