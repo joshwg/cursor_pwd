@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Tag as TagType } from '../types';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Edit, Tag as TagIcon, Palette } from 'lucide-react';
+import { Plus, Trash2, Edit, Tag as TagIcon, Upload, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getContrastColor } from '../utils/colorUtils';
+import { exportToCsv, checkTagExists } from '../utils/dataUtils';
+import { saveDataWithBackup } from '../utils/dataBackup';
 
 const TagsTab = () => {
   const { user } = useAuth();
@@ -23,6 +25,7 @@ const TagsTab = () => {
     description: '',
     color: '#3b82f6'
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const colors = [
     '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
@@ -171,21 +174,180 @@ const TagsTab = () => {
     }
   };
 
+  const exportTags = () => {
+    if (tags.length === 0) {
+      toast({
+        title: "No Tags to Export",
+        description: "You don't have any tags to export.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const exportData = tags.map(tag => ({
+      name: tag.name,
+      description: tag.description,
+      color: tag.color,
+      createdAt: new Date(tag.createdAt).toISOString()
+    }));
+
+    const filename = `tags_export_${new Date().toISOString().split('T')[0]}.csv`;
+    exportToCsv(exportData, filename);
+
+    toast({
+      title: "Export Complete",
+      description: `Successfully exported ${tags.length} tags to ${filename}`,
+    });
+  };
+
+  const importTags = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const csv = e.target?.result as string;
+        const lines = csv.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        
+        const importedTags: any[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          const tagData: any = {};
+          
+          headers.forEach((header, index) => {
+            tagData[header] = values[index] || '';
+          });
+          
+          if (tagData.name) {
+            // Check if tag already exists (upsert logic)
+            const existingTag = tags.find(t => 
+              t.name.toLowerCase() === tagData.name.toLowerCase() &&
+              t.userId === user!.id
+            );
+            
+            if (existingTag) {
+              // Update existing tag
+              const updatedTag: TagType = {
+                ...existingTag,
+                description: tagData.description || existingTag.description,
+                color: tagData.color || existingTag.color
+              };
+              importedTags.push(updatedTag);
+            } else {
+              // Create new tag
+              const newTag: TagType = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                userId: user!.id,
+                name: tagData.name.trim(),
+                description: tagData.description || '',
+                color: tagData.color || `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
+                createdAt: tagData.createdAt ? new Date(tagData.createdAt) : new Date()
+              };
+              importedTags.push(newTag);
+            }
+          }
+        }
+        
+        if (importedTags.length > 0) {
+          const savedTags = localStorage.getItem('pm_tags');
+          const allTags = savedTags ? JSON.parse(savedTags) : [];
+          
+          let updatedCount = 0;
+          let addedCount = 0;
+          
+          // Process each imported tag
+          importedTags.forEach(importedTag => {
+            if (importedTag.id && allTags.find((t: TagType) => t.id === importedTag.id)) {
+              // This is an update - replace the existing tag
+              const existingIndex = allTags.findIndex((t: TagType) => t.id === importedTag.id);
+              allTags[existingIndex] = importedTag;
+              updatedCount++;
+            } else {
+              // This is a new tag - add it
+              allTags.push(importedTag);
+              addedCount++;
+            }
+          });
+          
+          saveDataWithBackup('pm_tags', allTags);
+          loadTags();
+          
+          toast({
+            title: "Import Complete",
+            description: `Successfully added ${addedCount} new tags and updated ${updatedCount} existing tags.`,
+          });
+        } else {
+          toast({
+            title: "Import Failed",
+            description: "No valid tag entries found in the CSV file.",
+            variant: "destructive"
+          });
+        }
+        
+      } catch (error) {
+        console.error('Import error:', error);
+        toast({
+          title: "Import Failed",
+          description: "Failed to parse CSV file. Please check the format.",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    reader.readAsText(file);
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold text-white">Manage Tags</h2>
-        <Button
-          onClick={() => {
-            resetForm();
-            setShowAddForm(true);
-          }}
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Tag
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button
+            onClick={exportTags}
+            variant="outline"
+            className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export Tags
+          </Button>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            variant="outline"
+            className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Import Tags
+          </Button>
+          <Button
+            onClick={() => {
+              resetForm();
+              setShowAddForm(true);
+            }}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Tag
+          </Button>
+        </div>
       </div>
+
+      <input
+        type="file"
+        accept=".csv"
+        onChange={importTags}
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+      />
 
       {showAddForm && (
         <Card className="bg-slate-800/50 border-slate-700">
