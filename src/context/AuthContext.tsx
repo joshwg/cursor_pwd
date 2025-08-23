@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthContextType } from '../types';
+import { restoreDataFromBackups, startAutoBackup, saveDataWithBackup, getDataWithFallback } from '../utils/dataBackup';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -50,8 +51,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, lastActivity]);
 
   useEffect(() => {
+    // Start auto-backup system
+    const stopAutoBackup = startAutoBackup();
+    
+    // Restore data from backups if needed
+    restoreDataFromBackups();
+    
     // Initialize with admin user if no users exist
-    const existingUsers = localStorage.getItem('pm_users');
+    let existingUsers = getDataWithFallback('pm_users');
     if (!existingUsers) {
       const adminUser: User = {
         id: 'admin-1',
@@ -61,28 +68,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: new Date(),
         lastLogin: new Date()
       };
-      localStorage.setItem('pm_users', JSON.stringify([adminUser]));
+      saveDataWithBackup('pm_users', [adminUser]);
+      console.log('Created default admin user (super/abcd1234)');
     }
 
     // Check for existing session
-    const currentUser = localStorage.getItem('pm_current_user');
+    const currentUser = getDataWithFallback('pm_current_user');
     if (currentUser) {
-      setUser(JSON.parse(currentUser));
+      try {
+        setUser(JSON.parse(currentUser));
+        console.log('Restored user session from backup');
+      } catch (error) {
+        console.warn('Failed to parse current user data:', error);
+      }
     }
+    
+    return stopAutoBackup;
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    const users = JSON.parse(localStorage.getItem('pm_users') || '[]');
+    const usersData = getDataWithFallback('pm_users') || '[]';
+    const users = JSON.parse(usersData);
     const foundUser = users.find((u: User) => u.username === username && u.password === password);
     
     if (foundUser) {
       foundUser.lastLogin = new Date();
       setUser(foundUser);
-      localStorage.setItem('pm_current_user', JSON.stringify(foundUser));
+      saveDataWithBackup('pm_current_user', foundUser);
       
       // Update user in storage
       const updatedUsers = users.map((u: User) => u.id === foundUser.id ? foundUser : u);
-      localStorage.setItem('pm_users', JSON.stringify(updatedUsers));
+      saveDataWithBackup('pm_users', updatedUsers);
       
       return true;
     }
@@ -92,6 +108,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('pm_current_user');
+    localStorage.removeItem('pm_current_user_backup');
+    sessionStorage.removeItem('pm_current_user_backup');
   };
 
   const value: AuthContextType = {
