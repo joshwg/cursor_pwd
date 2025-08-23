@@ -346,27 +346,59 @@ const PasswordsTab = () => {
               tagIds.push(existingTag.id);
             });
             
-            const newPassword: PasswordEntry = {
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-              userId: user!.id,
-              site: passwordData.site,
-              username: passwordData.username,
-              password: encrypt(passwordData.password, encryptionKey, salt),
-              tagIds,
-              notes: passwordData.notes ? encrypt(passwordData.notes, encryptionKey, salt) : '',
-              salt,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            };
+            // Check if password already exists (upsert logic)
+            const existingPassword = passwords.find(p => 
+              p.site.toLowerCase() === passwordData.site.toLowerCase() &&
+              p.username.toLowerCase() === passwordData.username.toLowerCase() &&
+              p.userId === user!.id
+            );
             
-            importedPasswords.push(newPassword);
+            if (existingPassword) {
+              // Update existing password
+              const updatedPassword: PasswordEntry = {
+                ...existingPassword,
+                password: encrypt(passwordData.password, encryptionKey, salt),
+                tagIds,
+                notes: passwordData.notes ? encrypt(passwordData.notes, encryptionKey, salt) : '',
+                salt,
+                updatedAt: new Date()
+              };
+              importedPasswords.push(updatedPassword);
+            } else {
+              // Create new password
+              const newPassword: PasswordEntry = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                userId: user!.id,
+                site: passwordData.site,
+                username: passwordData.username,
+                password: encrypt(passwordData.password, encryptionKey, salt),
+                tagIds,
+                notes: passwordData.notes ? encrypt(passwordData.notes, encryptionKey, salt) : '',
+                salt,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              };
+              importedPasswords.push(newPassword);
+            }
           }
         }
         
         if (importedPasswords.length > 0) {
           const savedPasswords = localStorage.getItem('pm_passwords');
           const allPasswords = savedPasswords ? JSON.parse(savedPasswords) : [];
-          allPasswords.push(...importedPasswords);
+          
+          // Process each imported password to either update existing or add new
+          importedPasswords.forEach(importedPassword => {
+            const existingIndex = allPasswords.findIndex((p: PasswordEntry) => p.id === importedPassword.id);
+            if (existingIndex !== -1) {
+              // Update existing password
+              allPasswords[existingIndex] = importedPassword;
+            } else {
+              // Add new password
+              allPasswords.push(importedPassword);
+            }
+          });
+          
           saveDataWithBackup('pm_passwords', allPasswords);
           
           // Update tags in storage
