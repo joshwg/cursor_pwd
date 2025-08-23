@@ -29,6 +29,7 @@ const PasswordsTab = () => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [filteredPasswords, setFilteredPasswords] = useState<PasswordEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
@@ -48,7 +49,7 @@ const PasswordsTab = () => {
 
   useEffect(() => {
     filterPasswords();
-  }, [passwords, searchTerm, tags]);
+  }, [passwords, searchTerm, tags, selectedTagIds]);
 
   const ensureUserEncryptionKey = () => {
     if (!user) return '';
@@ -95,25 +96,33 @@ const PasswordsTab = () => {
   };
 
   const filterPasswords = () => {
-    if (!searchTerm.trim()) {
-      setFilteredPasswords(limitResults(passwords));
-      return;
+    let filtered = passwords;
+
+    // Filter by selected tags first
+    if (selectedTagIds.length > 0) {
+      filtered = filtered.filter(password => {
+        const tagIds = password.tagIds || [];
+        return selectedTagIds.every(selectedTagId => tagIds.includes(selectedTagId));
+      });
     }
 
-    const filtered = passwords.filter(password => {
-      const matchesSite = password.site.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesUsername = password.username.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesNotes = password.notes?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // Check if any assigned tags match - ensure tagIds is an array
-      const tagIds = password.tagIds || [];
-      const passwordTags = tags.filter(tag => tagIds.includes(tag.id));
-      const matchesTags = passwordTags.some(tag => 
-        tag.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      
-      return matchesSite || matchesUsername || matchesNotes || matchesTags;
-    });
+    // Then filter by search term
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(password => {
+        const matchesSite = password.site.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesUsername = password.username.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesNotes = password.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        // Check if any assigned tags match - ensure tagIds is an array
+        const tagIds = password.tagIds || [];
+        const passwordTags = tags.filter(tag => tagIds.includes(tag.id));
+        const matchesTags = passwordTags.some(tag => 
+          tag.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        
+        return matchesSite || matchesUsername || matchesNotes || matchesTags;
+      });
+    }
 
     setFilteredPasswords(limitResults(filtered));
   };
@@ -390,6 +399,26 @@ const PasswordsTab = () => {
     return tags.filter(tag => safeTagIds.includes(tag.id));
   };
 
+  const handleTagDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const tagId = e.dataTransfer.getData('text/plain');
+    if (tagId && !selectedTagIds.includes(tagId)) {
+      setSelectedTagIds([...selectedTagIds, tagId]);
+    }
+  };
+
+  const handleTagDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const removeSelectedTag = (tagId: string) => {
+    setSelectedTagIds(selectedTagIds.filter(id => id !== tagId));
+  };
+
+  const clearAllTags = () => {
+    setSelectedTagIds([]);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -431,21 +460,107 @@ const PasswordsTab = () => {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-        <Input
-          type="text"
-          placeholder="Search by site, username, tags, or notes..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-12 bg-slate-800/50 border-slate-700 text-white placeholder-slate-400"
-        />
+      {/* Search with Drag & Drop Tags */}
+      <div className="flex gap-4 h-32">
+        {/* Available Tags - Left 40% */}
+        <div className="w-2/5">
+          <h3 className="text-lg font-semibold text-white mb-3">Available Tags</h3>
+          <div className="bg-slate-800/30 border-2 border-dashed border-slate-600 rounded-lg p-4 h-full overflow-y-auto">
+            <div className="flex flex-wrap gap-2">
+              {tags.map(tag => (
+                <Badge
+                  key={tag.id}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('text/plain', tag.id)}
+                  className="cursor-grab active:cursor-grabbing select-none tag-wrap"
+                  style={{ 
+                    backgroundColor: tag.color,
+                    color: getContrastColor(tag.color)
+                  }}
+                >
+                  {tag.name}
+                </Badge>
+              ))}
+              {tags.length === 0 && (
+                <p className="text-slate-400 text-sm">No tags available</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Search Area - Right 60% */}
+        <div className="w-3/5">
+          <h3 className="text-lg font-semibold text-white mb-3">Search & Filter</h3>
+          <div className="space-y-3">
+            {/* Text Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="Search by site, username, or notes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-12 bg-slate-800/50 border-slate-700 text-white placeholder-slate-400"
+              />
+            </div>
+
+            {/* Tag Drop Zone */}
+            <div
+              className="bg-slate-800/30 border-2 border-dashed border-slate-600 rounded-lg p-3 min-h-[60px] transition-colors hover:border-slate-500"
+              onDrop={handleTagDrop}
+              onDragOver={handleTagDragOver}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-slate-400">Drop tags here to filter</span>
+                {selectedTagIds.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllTags}
+                    className="text-slate-400 hover:text-white h-6 px-2"
+                  >
+                    Clear all
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {selectedTagIds.map(tagId => {
+                  const tag = tags.find(t => t.id === tagId);
+                  if (!tag) return null;
+                  return (
+                    <Badge
+                      key={tagId}
+                      className="select-none tag-wrap"
+                      style={{ 
+                        backgroundColor: tag.color,
+                        color: getContrastColor(tag.color)
+                      }}
+                    >
+                      {tag.name}
+                      <button
+                        onClick={() => removeSelectedTag(tagId)}
+                        className="ml-2 hover:bg-black/20 rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  );
+                })}
+                {selectedTagIds.length === 0 && (
+                  <p className="text-slate-500 text-sm">No tags selected</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {searchTerm && (
+      {(searchTerm || selectedTagIds.length > 0) && (
         <div className="text-slate-300">
-          Found {filteredPasswords.length} result{filteredPasswords.length !== 1 ? 's' : ''} for "{searchTerm}" (limited to 100)
+          Found {filteredPasswords.length} result{filteredPasswords.length !== 1 ? 's' : ''} 
+          {searchTerm && ` for "${searchTerm}"`}
+          {selectedTagIds.length > 0 && ` with ${selectedTagIds.length} tag${selectedTagIds.length !== 1 ? 's' : ''}`}
+          {" (limited to 100)"}
         </div>
       )}
 
