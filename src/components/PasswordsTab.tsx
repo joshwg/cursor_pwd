@@ -506,7 +506,7 @@ const PasswordsTab = () => {
 
             {/* Tag Drop Zone */}
             <div
-              className="bg-slate-800/30 border-2 border-dashed border-slate-600 rounded-lg p-3 min-h-[60px] transition-colors hover:border-slate-500"
+              className="bg-slate-800/30 border-2 border-dashed border-slate-600 rounded-lg p-3 h-full transition-colors hover:border-slate-500"
               onDrop={handleTagDrop}
               onDragOver={handleTagDragOver}
             >
@@ -645,7 +645,7 @@ const PasswordsTab = () => {
       </Dialog>
 
       {/* Password Cards */}
-      <div className="grid gap-4">
+      <div className="grid gap-4 mt-10">
         {filteredPasswords.map((password) => {
           const passwordTags = getPasswordTags(password.tagIds);
           return (
