@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import Navigation from './Navigation';
 import PasswordsTab from './PasswordsTab';
 import TagsTab from './TagsTab';
-import SearchTab from './SearchTab';
 import UsersTab from './UsersTab';
 
 const Dashboard = () => {
@@ -15,8 +14,6 @@ const Dashboard = () => {
         return <PasswordsTab />;
       case 'tags':
         return <TagsTab />;
-      case 'search':
-        return <SearchTab />;
       case 'users':
         return <UsersTab />;
       default:

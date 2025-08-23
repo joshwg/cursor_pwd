@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Shield, User, LogOut, Key, Tag, Search, Users } from 'lucide-react';
+import { Shield, User, LogOut, Key, Tag, Users, Settings } from 'lucide-react';
+import ChangePasswordDialog from './ChangePasswordDialog';
 
 interface NavigationProps {
   activeTab: string;
@@ -11,11 +12,11 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
   const { user, logout } = useAuth();
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const menuItems = [
     { id: 'passwords', label: 'Passwords', icon: Key },
     { id: 'tags', label: 'Tags', icon: Tag },
-    { id: 'search', label: 'Search', icon: Search },
     ...(user?.isAdmin ? [{ id: 'users', label: 'Users', icon: Users }] : []),
   ];
 
@@ -69,6 +70,15 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => setShowChangePassword(true)}
+            className="text-slate-300 hover:text-white hover:bg-slate-700"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Change Password
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={logout}
             className="text-slate-300 hover:text-white hover:bg-slate-700"
           >
@@ -76,6 +86,11 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
             Logout
           </Button>
         </div>
+        
+        <ChangePasswordDialog 
+          open={showChangePassword} 
+          onOpenChange={setShowChangePassword} 
+        />
       </div>
     </nav>
   );

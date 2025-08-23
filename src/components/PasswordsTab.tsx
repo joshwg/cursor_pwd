@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Key, Search, Import, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import TagDropzone from './TagDropzone';
+import { getContrastColor } from '../utils/colorUtils';
 import { 
   checkPasswordExists, 
   sortPasswordsAlphabetically, 
@@ -30,6 +31,7 @@ const PasswordsTab = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordEntry | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+  const [showFormPassword, setShowFormPassword] = useState(false);
   const [formData, setFormData] = useState({
     site: '',
     username: '',
@@ -118,6 +120,7 @@ const PasswordsTab = () => {
     setFormData({ site: '', username: '', password: '', tagIds: [], notes: '' });
     setShowAddForm(false);
     setEditingPassword(null);
+    setShowFormPassword(false);
   };
 
   const savePassword = () => {
@@ -344,13 +347,24 @@ const PasswordsTab = () => {
             </div>
             <div>
               <Label className="text-slate-300">Password *</Label>
-              <Input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="bg-slate-700/50 border-slate-600 text-white"
-                placeholder="Your secure password"
-              />
+              <div className="relative">
+                <Input
+                  type={showFormPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className="bg-slate-700/50 border-slate-600 text-white pr-10"
+                  placeholder="Your secure password"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                  onClick={() => setShowFormPassword(!showFormPassword)}
+                >
+                  {showFormPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+              </div>
             </div>
             <div>
               <Label className="text-slate-300">Tags</Label>
@@ -445,8 +459,11 @@ const PasswordsTab = () => {
                         {passwordTags.map((tag) => (
                           <Badge
                             key={tag.id}
-                            style={{ backgroundColor: tag.color }}
-                            className="text-white font-medium whitespace-normal break-words"
+                            style={{ 
+                              backgroundColor: tag.color,
+                              color: getContrastColor(tag.color)
+                            }}
+                            className="font-medium whitespace-normal break-words"
                           >
                             {tag.name}
                           </Badge>

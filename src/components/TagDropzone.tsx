@@ -4,6 +4,7 @@ import { Tag } from '../types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
+import { getContrastColor } from '../utils/colorUtils';
 
 interface TagDropzoneProps {
   availableTags: Tag[];
@@ -69,8 +70,11 @@ const TagDropzone: React.FC<TagDropzoneProps> = ({
           {selectedTags.map(tag => (
             <Badge
               key={tag.id}
-              style={{ backgroundColor: tag.color }}
-              className="text-white font-medium whitespace-normal break-words cursor-pointer"
+              style={{ 
+                backgroundColor: tag.color,
+                color: getContrastColor(tag.color)
+              }}
+              className="font-medium whitespace-normal break-words cursor-pointer"
             >
               <span className="break-words">{tag.name}</span>
               <Button
@@ -95,8 +99,11 @@ const TagDropzone: React.FC<TagDropzoneProps> = ({
           {unselectedTags.map(tag => (
             <Badge
               key={tag.id}
-              style={{ backgroundColor: tag.color }}
-              className="text-white font-medium whitespace-normal break-words cursor-pointer hover:opacity-80"
+              style={{ 
+                backgroundColor: tag.color,
+                color: getContrastColor(tag.color)
+              }}
+              className="font-medium whitespace-normal break-words cursor-pointer hover:opacity-80"
               draggable
               onDragStart={(e) => handleTagDragStart(e, tag.id)}
               onClick={() => addTag(tag.id)}

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Edit, Tag as TagIcon, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getContrastColor } from '../utils/colorUtils';
 
 const TagsTab = () => {
   const { user } = useAuth();
@@ -264,8 +265,11 @@ const TagsTab = () => {
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-2">
                 <Badge
-                  style={{ backgroundColor: tag.color }}
-                  className="text-white font-medium whitespace-normal break-words flex-1 mr-2 min-h-6 py-1 px-2 leading-tight"
+                  style={{ 
+                    backgroundColor: tag.color,
+                    color: getContrastColor(tag.color)
+                  }}
+                  className="font-medium whitespace-normal break-words flex-1 mr-2 min-h-6 py-1 px-2 leading-tight"
                 >
                   {tag.name}
                 </Badge>
