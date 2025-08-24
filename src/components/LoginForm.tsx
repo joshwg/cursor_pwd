@@ -18,16 +18,22 @@ const LoginForm = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Mobile login attempt started', { username, hasPassword: !!password });
     setIsLoading(true);
 
     try {
+      console.log('Calling login function...');
       const success = await login(username, password);
+      console.log('Login result:', success);
+      
       if (success) {
+        console.log('Login successful');
         toast({
           title: "Login Successful",
           description: "Welcome to your password vault!",
         });
       } else {
+        console.log('Login failed - invalid credentials');
         toast({
           title: "Login Failed",
           description: "Invalid username or password.",
@@ -35,6 +41,7 @@ const LoginForm = () => {
         });
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Error",
         description: "An error occurred during login.",
@@ -76,6 +83,10 @@ const LoginForm = () => {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
                     required
                   />
                 </div>
@@ -91,14 +102,19 @@ const LoginForm = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 pr-10 bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
+                    autoComplete="current-password"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
                     required
                   />
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white h-8 w-8 min-w-[2rem]"
                     onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
