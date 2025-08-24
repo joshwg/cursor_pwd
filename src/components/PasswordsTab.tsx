@@ -153,10 +153,10 @@ const PasswordsTab = () => {
   const savePassword = () => {
     if (!user) return;
     
-    if (!formData.site.trim() || !formData.username.trim() || !formData.password.trim()) {
+    if (!formData.site.trim() || !formData.username.trim()) {
       toast({
         title: "Error",
-        description: "Site, username, and password are required.",
+        description: "Site and username are required.",
         variant: "destructive"
       });
       return;
@@ -184,7 +184,7 @@ const PasswordsTab = () => {
         ...editingPassword,
         site: formData.site.trim(),
         username: formData.username.trim(),
-        password: encrypt(formData.password, encryptionKey, salt),
+        password: formData.password.trim() ? encrypt(formData.password, encryptionKey, salt) : '',
         tagIds: formData.tagIds,
         notes: formData.notes.trim() ? encrypt(formData.notes.trim(), encryptionKey, salt) : '',
         salt,
@@ -207,7 +207,7 @@ const PasswordsTab = () => {
         userId: user.id,
         site: formData.site.trim(),
         username: formData.username.trim(),
-        password: encrypt(formData.password, encryptionKey, salt),
+        password: formData.password.trim() ? encrypt(formData.password, encryptionKey, salt) : '',
         tagIds: formData.tagIds,
         notes: formData.notes.trim() ? encrypt(formData.notes.trim(), encryptionKey, salt) : '',
         salt,
@@ -320,7 +320,7 @@ const PasswordsTab = () => {
             passwordData[header] = values[index] || '';
           });
           
-          if (passwordData.site && passwordData.username && passwordData.password) {
+          if (passwordData.site && passwordData.username) {
             const encryptionKey = ensureUserEncryptionKey();
             const salt = generateSalt();
             
@@ -357,7 +357,7 @@ const PasswordsTab = () => {
               // Update existing password
               const updatedPassword: PasswordEntry = {
                 ...existingPassword,
-                password: encrypt(passwordData.password, encryptionKey, salt),
+                password: passwordData.password ? encrypt(passwordData.password, encryptionKey, salt) : '',
                 tagIds,
                 notes: passwordData.notes ? encrypt(passwordData.notes, encryptionKey, salt) : '',
                 salt,
@@ -371,7 +371,7 @@ const PasswordsTab = () => {
                 userId: user!.id,
                 site: passwordData.site,
                 username: passwordData.username,
-                password: encrypt(passwordData.password, encryptionKey, salt),
+                password: passwordData.password ? encrypt(passwordData.password, encryptionKey, salt) : '',
                 tagIds,
                 notes: passwordData.notes ? encrypt(passwordData.notes, encryptionKey, salt) : '',
                 salt,
@@ -660,7 +660,7 @@ const PasswordsTab = () => {
               </div>
             </div>
             <div>
-              <Label className="text-slate-300">Password *</Label>
+              <Label className="text-slate-300">Password</Label>
               <div className="relative">
                 <Input
                   type={showFormPassword ? "text" : "password"}
