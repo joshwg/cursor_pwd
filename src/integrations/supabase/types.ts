@@ -14,7 +14,129 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      password_tags: {
+        Row: {
+          password_id: string
+          tag_id: string
+        }
+        Insert: {
+          password_id: string
+          tag_id: string
+        }
+        Update: {
+          password_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "password_tags_password_id_fkey"
+            columns: ["password_id"]
+            isOneToOne: false
+            referencedRelation: "passwords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "password_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      passwords: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          password: string | null
+          salt: string | null
+          site: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          password?: string | null
+          salt?: string | null
+          site: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          password?: string | null
+          salt?: string | null
+          site?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          encryption_key: string | null
+          id: string
+          is_admin: boolean
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          encryption_key?: string | null
+          id?: string
+          is_admin?: boolean
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          encryption_key?: string | null
+          id?: string
+          is_admin?: boolean
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
