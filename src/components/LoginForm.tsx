@@ -112,11 +112,6 @@ const LoginForm = () => {
                 {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
-            <div className="mt-4 p-3 bg-slate-700/30 rounded-lg">
-              <p className="text-xs text-slate-400 text-center">
-                Default admin: <span className="text-blue-400">super</span> / <span className="text-blue-400">abcd1234</span>
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>
