@@ -1,6 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react';
 import { Tag as TagType } from '../types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,16 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Edit, Tag as TagIcon, Upload, Download } from 'lucide-react';
+import { Plus, Trash2, Edit, Tag as TagIcon, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getContrastColor, ensureHexColor } from '../utils/colorUtils';
-import { exportToCsv, checkTagExists } from '../utils/dataUtils';
-import { saveDataWithBackup } from '../utils/dataBackup';
+import { exportToCsv } from '../utils/dataUtils';
+import { useTags } from '../hooks/useTags';
 
 const TagsTab = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const [tags, setTags] = useState<TagType[]>([]);
+  const { tags, loading, saveTag, deleteTag, checkTagNameExists } = useTags();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingTag, setEditingTag] = useState<TagType | null>(null);
   const [formData, setFormData] = useState({
@@ -25,7 +22,6 @@ const TagsTab = () => {
     description: '',
     color: '#3b82f6'
   });
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const colors = [
     '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
@@ -33,39 +29,14 @@ const TagsTab = () => {
     '#f97316', '#14b8a6', '#a855f7', '#dc2626'
   ];
 
-  useEffect(() => {
-    loadTags();
-  }, [user]);
-
-  const loadTags = () => {
-    if (!user) return;
-    const savedTags = localStorage.getItem('pm_tags');
-    if (savedTags) {
-      const allTags = JSON.parse(savedTags);
-      const userTags = allTags.filter((t: TagType) => t.userId === user.id);
-      // Sort alphabetically, case insensitive
-      userTags.sort((a: TagType, b: TagType) => 
-        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-      );
-      setTags(userTags);
-    }
-  };
-
   const resetForm = () => {
     setFormData({ name: '', description: '', color: '#3b82f6' });
     setShowAddForm(false);
     setEditingTag(null);
   };
 
-  const checkTagNameExists = (name: string, excludeId?: string) => {
-    return tags.some(tag => 
-      tag.name.toLowerCase() === name.toLowerCase() && 
-      tag.id !== excludeId
-    );
-  };
-
-  const saveTag = () => {
-    if (!user || !formData.name.trim()) {
+  const handleSave = async () => {
+    if (!formData.name.trim()) {
       toast({
         title: "Error",
         description: "Tag name is required.",
@@ -74,27 +45,6 @@ const TagsTab = () => {
       return;
     }
 
-    // Validate tag name length
-    if (formData.name.trim().length > 40) {
-      toast({
-        title: "Error",
-        description: "Tag name must be 40 characters or less.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validate description length
-    if (formData.description.length > 255) {
-      toast({
-        title: "Error",
-        description: "Tag description must be 255 characters or less.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Check for duplicate names
     if (checkTagNameExists(formData.name.trim(), editingTag?.id)) {
       toast({
         title: "Error",
@@ -104,49 +54,10 @@ const TagsTab = () => {
       return;
     }
 
-    const savedTags = localStorage.getItem('pm_tags');
-    const allTags = savedTags ? JSON.parse(savedTags) : [];
-
-    if (editingTag) {
-      // Update existing tag
-      const updatedTag: TagType = {
-        ...editingTag,
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        color: formData.color
-      };
-
-      const tagIndex = allTags.findIndex((t: TagType) => t.id === editingTag.id);
-      if (tagIndex !== -1) {
-        allTags[tagIndex] = updatedTag;
-      }
-
-      toast({
-        title: "Tag Updated",
-        description: "Your tag has been updated successfully.",
-      });
-    } else {
-      // Create new tag
-      const newTag: TagType = {
-        id: Date.now().toString(),
-        userId: user.id,
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        color: formData.color,
-        createdAt: new Date()
-      };
-
-      allTags.push(newTag);
-
-      toast({
-        title: "Tag Created",
-        description: "Your new tag has been added.",
-      });
+    const success = await saveTag(formData, editingTag || undefined);
+    if (success) {
+      resetForm();
     }
-
-    localStorage.setItem('pm_tags', JSON.stringify(allTags));
-    loadTags();
-    resetForm();
   };
 
   const startEditTag = (tag: TagType) => {
@@ -157,21 +68,6 @@ const TagsTab = () => {
       color: tag.color
     });
     setShowAddForm(true);
-  };
-
-  const deleteTag = (tagId: string) => {
-    const savedTags = localStorage.getItem('pm_tags');
-    if (savedTags) {
-      const allTags = JSON.parse(savedTags);
-      const filteredTags = allTags.filter((t: TagType) => t.id !== tagId);
-      localStorage.setItem('pm_tags', JSON.stringify(filteredTags));
-      loadTags();
-      
-      toast({
-        title: "Tag Deleted",
-        description: "The tag has been removed.",
-      });
-    }
   };
 
   const exportTags = () => {
@@ -200,112 +96,13 @@ const TagsTab = () => {
     });
   };
 
-  const importTags = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const csv = e.target?.result as string;
-        const lines = csv.split('\n');
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        
-        const importedTags: any[] = [];
-        
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-          
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-          const tagData: any = {};
-          
-          headers.forEach((header, index) => {
-            tagData[header] = values[index] || '';
-          });
-          
-          if (tagData.name) {
-            // Check if tag already exists (upsert logic)
-            const existingTag = tags.find(t => 
-              t.name.toLowerCase() === tagData.name.toLowerCase() &&
-              t.userId === user!.id
-            );
-            
-            if (existingTag) {
-              // Update existing tag
-              const updatedTag: TagType = {
-                ...existingTag,
-                description: tagData.description || existingTag.description,
-                color: tagData.color || existingTag.color
-              };
-              importedTags.push(updatedTag);
-            } else {
-              // Create new tag
-              const newTag: TagType = {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                userId: user!.id,
-                name: tagData.name.trim(),
-                description: tagData.description || '',
-                color: tagData.color || `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
-                createdAt: tagData.createdAt ? new Date(tagData.createdAt) : new Date()
-              };
-              importedTags.push(newTag);
-            }
-          }
-        }
-        
-        if (importedTags.length > 0) {
-          const savedTags = localStorage.getItem('pm_tags');
-          const allTags = savedTags ? JSON.parse(savedTags) : [];
-          
-          let updatedCount = 0;
-          let addedCount = 0;
-          
-          // Process each imported tag
-          importedTags.forEach(importedTag => {
-            if (importedTag.id && allTags.find((t: TagType) => t.id === importedTag.id)) {
-              // This is an update - replace the existing tag
-              const existingIndex = allTags.findIndex((t: TagType) => t.id === importedTag.id);
-              allTags[existingIndex] = importedTag;
-              updatedCount++;
-            } else {
-              // This is a new tag - add it
-              allTags.push(importedTag);
-              addedCount++;
-            }
-          });
-          
-          saveDataWithBackup('pm_tags', allTags);
-          loadTags();
-          
-          toast({
-            title: "Import Complete",
-            description: `Successfully added ${addedCount} new tags and updated ${updatedCount} existing tags.`,
-          });
-        } else {
-          toast({
-            title: "Import Failed",
-            description: "No valid tag entries found in the CSV file.",
-            variant: "destructive"
-          });
-        }
-        
-      } catch (error) {
-        console.error('Import error:', error);
-        toast({
-          title: "Import Failed",
-          description: "Failed to parse CSV file. Please check the format.",
-          variant: "destructive"
-        });
-      }
-    };
-    
-    reader.readAsText(file);
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-white">Loading tags...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -321,14 +118,6 @@ const TagsTab = () => {
             Export Tags
           </Button>
           <Button
-            onClick={() => fileInputRef.current?.click()}
-            variant="outline"
-            className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Import Tags
-          </Button>
-          <Button
             onClick={() => {
               resetForm();
               setShowAddForm(true);
@@ -340,14 +129,6 @@ const TagsTab = () => {
           </Button>
         </div>
       </div>
-
-      <input
-        type="file"
-        accept=".csv"
-        onChange={importTags}
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-      />
 
       {showAddForm && (
         <Card className="bg-slate-800/50 border-slate-700">
@@ -366,9 +147,6 @@ const TagsTab = () => {
                 placeholder="e.g., work, personal, banking"
                 maxLength={40}
               />
-              <p className="text-xs text-slate-400 mt-1">
-                {formData.name.length}/40 characters
-              </p>
             </div>
             <div>
               <Label className="text-slate-300">Description</Label>
@@ -380,9 +158,6 @@ const TagsTab = () => {
                 maxLength={255}
                 rows={3}
               />
-              <p className="text-xs text-slate-400 mt-1">
-                {formData.description.length}/255 characters
-              </p>
             </div>
             <div>
               <Label className="text-slate-300">Color</Label>
@@ -399,18 +174,9 @@ const TagsTab = () => {
                   />
                 ))}
               </div>
-              <div className="mt-2">
-                <Input
-                  type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData({...formData, color: e.target.value})}
-                  className="w-16 h-8 bg-slate-700/50 border-slate-600"
-                  title="Custom color"
-                />
-              </div>
             </div>
             <div className="flex space-x-2">
-              <Button onClick={saveTag} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
                 {editingTag ? 'Update Tag' : 'Create Tag'}
               </Button>
               <Button variant="outline" onClick={resetForm}>

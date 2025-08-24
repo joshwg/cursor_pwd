@@ -1,32 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { PasswordEntry, Tag } from '../types';
+import { PasswordEntry } from '../types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Search, Download, Upload, Key, ChevronDown, ChevronUp } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Eye, EyeOff, Copy, Edit, Trash2, Search, Download, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import TagDropzone from './TagDropzone';
 import { getContrastColor } from '../utils/colorUtils';
 import { 
   checkPasswordExists, 
-  sortPasswordsAlphabetically, 
-  sortAlphabetically, 
   limitResults,
   exportToCsv 
 } from '../utils/dataUtils';
-import { encrypt, decrypt, generateSalt, generateUserKey } from '../utils/encryption';
-import { saveDataWithBackup } from '../utils/dataBackup';
+import { usePasswords } from '../hooks/usePasswords';
+import { useTags } from '../hooks/useTags';
 
 const PasswordsTab = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
+  const { passwords, loading: passwordsLoading, savePassword, deletePassword } = usePasswords();
+  const { tags } = useTags();
   const [filteredPasswords, setFilteredPasswords] = useState<PasswordEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -44,55 +42,34 @@ const PasswordsTab = () => {
   });
 
   useEffect(() => {
-    loadPasswords();
-    loadTags();
-  }, [user]);
-
-  useEffect(() => {
     filterPasswords();
   }, [passwords, searchTerm, tags, selectedTagIds]);
 
-  const ensureUserEncryptionKey = () => {
-    if (!user) return '';
-    
-    const users = JSON.parse(localStorage.getItem('pm_users') || '[]');
-    const currentUser = users.find((u: any) => u.id === user.id);
-    
-    if (!currentUser.encryptionKey) {
-      currentUser.encryptionKey = generateUserKey();
-      const updatedUsers = users.map((u: any) => u.id === user.id ? currentUser : u);
-      localStorage.setItem('pm_users', JSON.stringify(updatedUsers));
-    }
-    
-    return currentUser.encryptionKey;
-  };
-
-  const loadPasswords = () => {
+  const handleSave = async () => {
     if (!user) return;
-    const savedPasswords = localStorage.getItem('pm_passwords');
-    if (savedPasswords) {
-      const allPasswords = JSON.parse(savedPasswords);
-      const userPasswords = allPasswords.filter((p: PasswordEntry) => p.userId === user.id);
-      
-      // Decrypt passwords and notes
-      const encryptionKey = ensureUserEncryptionKey();
-      const decryptedPasswords = userPasswords.map((p: PasswordEntry) => ({
-        ...p,
-        password: p.salt ? decrypt(p.password, encryptionKey, p.salt) : p.password,
-        notes: p.notes && p.salt ? decrypt(p.notes, encryptionKey, p.salt) : p.notes
-      }));
-      
-      setPasswords(sortPasswordsAlphabetically(decryptedPasswords));
+    
+    if (!formData.site.trim() || !formData.username.trim()) {
+      toast({
+        title: "Error",
+        description: "Site and username are required.",
+        variant: "destructive"
+      });
+      return;
     }
-  };
 
-  const loadTags = () => {
-    if (!user) return;
-    const savedTags = localStorage.getItem('pm_tags');
-    if (savedTags) {
-      const allTags = JSON.parse(savedTags);
-      const userTags = allTags.filter((t: Tag) => t.userId === user.id);
-      setTags(sortAlphabetically(userTags));
+    // Check for duplicates
+    if (checkPasswordExists(passwords, formData.site.trim(), formData.username.trim(), user.id, editingPassword?.id)) {
+      toast({
+        title: "Error",
+        description: "A password for this site and username already exists.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const success = await savePassword(formData, editingPassword || undefined);
+    if (success) {
+      resetForm();
     }
   };
 
@@ -150,82 +127,8 @@ const PasswordsTab = () => {
     setShowFormPassword(false);
   };
 
-  const savePassword = () => {
-    if (!user) return;
-    
-    if (!formData.site.trim() || !formData.username.trim()) {
-      toast({
-        title: "Error",
-        description: "Site and username are required.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Check for duplicates
-    if (checkPasswordExists(passwords, formData.site.trim(), formData.username.trim(), user.id, editingPassword?.id)) {
-      toast({
-        title: "Error",
-        description: "A password for this site and username already exists.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const encryptionKey = ensureUserEncryptionKey();
-    const salt = generateSalt();
-    
-    const savedPasswords = localStorage.getItem('pm_passwords');
-    const allPasswords = savedPasswords ? JSON.parse(savedPasswords) : [];
-
-    if (editingPassword) {
-      // Update existing password
-      const updatedPassword: PasswordEntry = {
-        ...editingPassword,
-        site: formData.site.trim(),
-        username: formData.username.trim(),
-        password: formData.password.trim() ? encrypt(formData.password, encryptionKey, salt) : '',
-        tagIds: formData.tagIds,
-        notes: formData.notes.trim() ? encrypt(formData.notes.trim(), encryptionKey, salt) : '',
-        salt,
-        updatedAt: new Date()
-      };
-
-      const passwordIndex = allPasswords.findIndex((p: PasswordEntry) => p.id === editingPassword.id);
-      if (passwordIndex !== -1) {
-        allPasswords[passwordIndex] = updatedPassword;
-      }
-
-      toast({
-        title: "Password Updated",
-        description: "Your password has been updated successfully.",
-      });
-    } else {
-      // Create new password
-      const newPassword: PasswordEntry = {
-        id: Date.now().toString(),
-        userId: user.id,
-        site: formData.site.trim(),
-        username: formData.username.trim(),
-        password: formData.password.trim() ? encrypt(formData.password, encryptionKey, salt) : '',
-        tagIds: formData.tagIds,
-        notes: formData.notes.trim() ? encrypt(formData.notes.trim(), encryptionKey, salt) : '',
-        salt,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      allPasswords.push(newPassword);
-
-      toast({
-        title: "Password Saved",
-        description: "Your password has been securely stored.",
-      });
-    }
-
-    localStorage.setItem('pm_passwords', JSON.stringify(allPasswords));
-    loadPasswords();
-    resetForm();
+  const handleDelete = async (passwordId: string) => {
+    await deletePassword(passwordId);
   };
 
   const startEditPassword = (password: PasswordEntry) => {
@@ -238,21 +141,6 @@ const PasswordsTab = () => {
       notes: password.notes || ''
     });
     setShowAddForm(true);
-  };
-
-  const deletePassword = (passwordId: string) => {
-    const savedPasswords = localStorage.getItem('pm_passwords');
-    if (savedPasswords) {
-      const allPasswords = JSON.parse(savedPasswords);
-      const filteredPasswords = allPasswords.filter((p: PasswordEntry) => p.id !== passwordId);
-      localStorage.setItem('pm_passwords', JSON.stringify(filteredPasswords));
-      loadPasswords();
-      
-      toast({
-        title: "Password Deleted",
-        description: "The password has been removed.",
-      });
-    }
   };
 
   const togglePasswordVisibility = (id: string) => {
@@ -275,7 +163,7 @@ const PasswordsTab = () => {
 
   const exportData = () => {
     const exportPasswords = passwords.map(p => {
-      const tagIds = p.tagIds || []; // Ensure tagIds is an array
+      const tagIds = p.tagIds || [];
       const passwordTags = tags.filter(tag => tagIds.includes(tag.id)).map(tag => tag.name);
       return {
         site: p.site,
@@ -296,169 +184,8 @@ const PasswordsTab = () => {
     });
   };
 
-  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const csv = e.target?.result as string;
-        const lines = csv.split('\n');
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        
-        const importedPasswords: any[] = [];
-        
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-          
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-          const passwordData: any = {};
-          
-          headers.forEach((header, index) => {
-            passwordData[header] = values[index] || '';
-          });
-          
-          if (passwordData.site && passwordData.username) {
-            const encryptionKey = ensureUserEncryptionKey();
-            const salt = generateSalt();
-            
-            // Find or create tags
-            const tagNames = passwordData.tags ? passwordData.tags.split(';').filter((t: string) => t.trim()) : [];
-            const tagIds: string[] = [];
-            
-            tagNames.forEach((tagName: string) => {
-              let existingTag = tags.find(t => t.name.toLowerCase() === tagName.trim().toLowerCase());
-              if (!existingTag) {
-                // Create new tag
-                const newTag: Tag = {
-                  id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                  userId: user!.id,
-                  name: tagName.trim(),
-                  description: '',
-                  color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
-                  createdAt: new Date()
-                };
-                tags.push(newTag);
-                existingTag = newTag;
-              }
-              tagIds.push(existingTag.id);
-            });
-            
-            // Check if password already exists (upsert logic)
-            const existingPassword = passwords.find(p => 
-              p.site.toLowerCase() === passwordData.site.toLowerCase() &&
-              p.username.toLowerCase() === passwordData.username.toLowerCase() &&
-              p.userId === user!.id
-            );
-            
-            if (existingPassword) {
-              // Update existing password
-              const updatedPassword: PasswordEntry = {
-                ...existingPassword,
-                password: passwordData.password ? encrypt(passwordData.password, encryptionKey, salt) : '',
-                tagIds,
-                notes: passwordData.notes ? encrypt(passwordData.notes, encryptionKey, salt) : '',
-                salt,
-                updatedAt: new Date()
-              };
-              importedPasswords.push(updatedPassword);
-            } else {
-              // Create new password
-              const newPassword: PasswordEntry = {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                userId: user!.id,
-                site: passwordData.site,
-                username: passwordData.username,
-                password: passwordData.password ? encrypt(passwordData.password, encryptionKey, salt) : '',
-                tagIds,
-                notes: passwordData.notes ? encrypt(passwordData.notes, encryptionKey, salt) : '',
-                salt,
-                createdAt: new Date(),
-                updatedAt: new Date()
-              };
-              importedPasswords.push(newPassword);
-            }
-          }
-        }
-        
-        if (importedPasswords.length > 0) {
-          const savedPasswords = localStorage.getItem('pm_passwords');
-          const allPasswords = savedPasswords ? JSON.parse(savedPasswords) : [];
-          
-          let updatedCount = 0;
-          let addedCount = 0;
-          
-          // Process each imported password to either update existing or add new
-          importedPasswords.forEach(importedPassword => {
-            // Find existing password in storage by site, username, and userId
-            const existingIndex = allPasswords.findIndex((p: PasswordEntry) => 
-              p.site.toLowerCase() === importedPassword.site.toLowerCase() &&
-              p.username.toLowerCase() === importedPassword.username.toLowerCase() &&
-              p.userId === importedPassword.userId
-            );
-            
-            if (existingIndex !== -1) {
-              // Update existing password, keep the original ID and createdAt
-              allPasswords[existingIndex] = {
-                ...importedPassword,
-                id: allPasswords[existingIndex].id,
-                createdAt: allPasswords[existingIndex].createdAt
-              };
-              updatedCount++;
-            } else {
-              // Add new password
-              allPasswords.push(importedPassword);
-              addedCount++;
-            }
-          });
-          
-          saveDataWithBackup('pm_passwords', allPasswords);
-          
-          // Update tags in storage
-          const savedTags = localStorage.getItem('pm_tags');
-          const allTags = savedTags ? JSON.parse(savedTags) : [];
-          const updatedTags = [...allTags];
-          tags.forEach(tag => {
-            if (!allTags.find((t: Tag) => t.id === tag.id)) {
-              updatedTags.push(tag);
-            }
-          });
-          saveDataWithBackup('pm_tags', updatedTags);
-          
-          loadPasswords();
-          loadTags();
-          
-          toast({
-            title: "Import Complete",
-            description: `Successfully added ${addedCount} new passwords and updated ${updatedCount} existing passwords.`,
-          });
-        } else {
-          toast({
-            title: "Import Failed",
-            description: "No valid password entries found in the CSV file.",
-            variant: "destructive"
-          });
-        }
-        
-      } catch (error) {
-        console.error('Import error:', error);
-        toast({
-          title: "Import Failed",
-          description: "Failed to parse CSV file. Please check the format.",
-          variant: "destructive"
-        });
-      }
-    };
-    
-    reader.readAsText(file);
-    // Reset file input
-    event.target.value = '';
-  };
-
   const getPasswordTags = (tagIds: string[]) => {
-    const safeTagIds = tagIds || []; // Ensure tagIds is an array
+    const safeTagIds = tagIds || [];
     return tags.filter(tag => safeTagIds.includes(tag.id));
   };
 
@@ -482,26 +209,19 @@ const PasswordsTab = () => {
     setSelectedTagIds([]);
   };
 
+  if (passwordsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-white">Loading passwords...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-3xl font-bold text-white">Your Passwords</h2>
         <div className="flex space-x-2">
-          <input
-            type="file"
-            accept=".csv"
-            onChange={importData}
-            className="hidden"
-            id="import-file"
-          />
-          <Button
-            variant="outline"
-            onClick={() => document.getElementById('import-file')?.click()}
-            className="bg-slate-800/50 border-slate-600 text-white hover:bg-slate-700/50"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Import CSV
-          </Button>
           <Button
             variant="outline"
             onClick={exportData}
@@ -618,9 +338,7 @@ const PasswordsTab = () => {
         </div>
       </div>
 
-      {/* Spacer */}
-      <div className="h-10"></div>
-
+      {/* Results indicator */}
       {(searchTerm || selectedTagIds.length > 0) && (
         <div className="text-slate-300">
           Found {filteredPasswords.length} result{filteredPasswords.length !== 1 ? 's' : ''} 
@@ -699,7 +417,7 @@ const PasswordsTab = () => {
               />
             </div>
             <div className="flex space-x-2">
-              <Button onClick={savePassword} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
                 {editingPassword ? 'Update Password' : 'Save Password'}
               </Button>
               <Button variant="outline" onClick={resetForm}>
@@ -711,7 +429,7 @@ const PasswordsTab = () => {
       </Dialog>
 
       {/* Password Cards */}
-      <div className="grid gap-4 mt-20">
+      <div className="grid gap-4">
         {filteredPasswords.map((password) => {
           const passwordTags = getPasswordTags(password.tagIds);
           return (
@@ -734,7 +452,7 @@ const PasswordsTab = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => deletePassword(password.id)}
+                      onClick={() => handleDelete(password.id)}
                       className="text-red-400 hover:text-red-300"
                     >
                       <Trash2 className="w-4 h-4" />

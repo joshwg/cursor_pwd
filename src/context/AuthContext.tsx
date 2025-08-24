@@ -1,7 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { User, AuthContextType } from '../types';
-import { restoreDataFromBackups, startAutoBackup, saveDataWithBackup, getDataWithFallback } from '../utils/dataBackup';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -15,6 +16,7 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
   // Idle timeout - 30 minutes
@@ -50,71 +52,98 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(interval);
   }, [user, lastActivity]);
 
-  useEffect(() => {
-    // Start auto-backup system
-    const stopAutoBackup = startAutoBackup();
-    
-    // Restore data from backups if needed
-    restoreDataFromBackups();
-    
-    // Initialize with admin user if no users exist
-    let existingUsers = getDataWithFallback('pm_users');
-    if (!existingUsers) {
-      const adminUser: User = {
-        id: 'admin-1',
-        username: 'super',
-        password: 'abcd1234',
-        isAdmin: true,
-        createdAt: new Date(),
-        lastLogin: new Date()
-      };
-      saveDataWithBackup('pm_users', [adminUser]);
+  // Fetch user profile from Supabase
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+
+      return {
+        id: data.user_id,
+        username: data.username || 'User',
+        password: '', // Not stored in profile for security
+        isAdmin: data.is_admin || false,
+        createdAt: new Date(data.created_at),
+        lastLogin: new Date(),
+        encryptionKey: data.encryption_key
+      } as User;
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+      return null;
     }
+  };
+
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          // Defer the profile fetch to avoid potential issues
+          setTimeout(() => {
+            fetchUserProfile(session.user.id).then((profile) => {
+              if (profile) {
+                setUser(profile);
+              }
+            });
+          }, 0);
+        } else {
+          setUser(null);
+        }
+      }
+    );
 
     // Check for existing session
-    const currentUser = getDataWithFallback('pm_current_user');
-    if (currentUser) {
-      try {
-        setUser(JSON.parse(currentUser));
-      } catch (error) {
-        console.warn('Failed to parse current user data:', error);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchUserProfile(session.user.id).then((profile) => {
+          if (profile) {
+            setUser(profile);
+          }
+        });
       }
-    }
-    
-    return stopAutoBackup;
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const usersData = getDataWithFallback('pm_users') || '[]';
-      const users = JSON.parse(usersData);
-      const foundUser = users.find((u: User) => u.username === username && u.password === password);
-      
-      if (foundUser) {
-        foundUser.lastLogin = new Date();
-        setUser(foundUser);
-        
-        saveDataWithBackup('pm_current_user', foundUser);
-        
-        // Update user in storage
-        const updatedUsers = users.map((u: User) => u.id === foundUser.id ? foundUser : u);
-        saveDataWithBackup('pm_users', updatedUsers);
-        
-        return true;
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error);
+        return false;
       }
-      
-      return false;
+
+      return true;
     } catch (error) {
       console.error('Login function error:', error);
       return false;
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('pm_current_user');
-    localStorage.removeItem('pm_current_user_backup');
-    sessionStorage.removeItem('pm_current_user_backup');
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const value: AuthContextType = {
