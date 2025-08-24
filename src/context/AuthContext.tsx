@@ -69,7 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastLogin: new Date()
       };
       saveDataWithBackup('pm_users', [adminUser]);
-      console.log('Created default admin user (super/abcd1234)');
     }
 
     // Check for existing session
@@ -77,7 +76,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (currentUser) {
       try {
         setUser(JSON.parse(currentUser));
-        console.log('Restored user session from backup');
       } catch (error) {
         console.warn('Failed to parse current user data:', error);
       }
@@ -87,33 +85,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    console.log('AuthContext login called', { username, hasPassword: !!password });
-    
     try {
       const usersData = getDataWithFallback('pm_users') || '[]';
-      console.log('Retrieved users data length:', JSON.parse(usersData).length);
-      
       const users = JSON.parse(usersData);
       const foundUser = users.find((u: User) => u.username === username && u.password === password);
-      
-      console.log('User found:', !!foundUser);
       
       if (foundUser) {
         foundUser.lastLogin = new Date();
         setUser(foundUser);
         
-        console.log('Saving user session...');
         saveDataWithBackup('pm_current_user', foundUser);
         
         // Update user in storage
         const updatedUsers = users.map((u: User) => u.id === foundUser.id ? foundUser : u);
         saveDataWithBackup('pm_users', updatedUsers);
         
-        console.log('Login process completed successfully');
         return true;
       }
       
-      console.log('Login failed - user not found or invalid credentials');
       return false;
     } catch (error) {
       console.error('Login function error:', error);

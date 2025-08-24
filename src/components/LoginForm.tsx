@@ -18,22 +18,17 @@ const LoginForm = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Mobile login attempt started', { username, hasPassword: !!password });
     setIsLoading(true);
 
     try {
-      console.log('Calling login function...');
       const success = await login(username, password);
-      console.log('Login result:', success);
       
       if (success) {
-        console.log('Login successful');
         toast({
           title: "Login Successful",
           description: "Welcome to your password vault!",
         });
       } else {
-        console.log('Login failed - invalid credentials');
         toast({
           title: "Login Failed",
           description: "Invalid username or password.",
@@ -41,7 +36,6 @@ const LoginForm = () => {
         });
       }
     } catch (error) {
-      console.error('Login error:', error);
       toast({
         title: "Error",
         description: "An error occurred during login.",
