@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, User as UserIcon, Shield, Trash2, Key, ShieldCheck } from 'lucide-react';
+import { Plus, User as UserIcon, Shield, Trash2, Key, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ChangePasswordDialog from './ChangePasswordDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -19,6 +19,7 @@ const UsersTab = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [showFormPassword, setShowFormPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -73,6 +74,7 @@ const UsersTab = () => {
     loadUsers();
     setShowAddForm(false);
     setFormData({ username: '', password: '', isAdmin: false });
+    setShowFormPassword(false);
     
     toast({
       title: "User Created",
@@ -179,13 +181,28 @@ const UsersTab = () => {
             </div>
             <div>
               <Label className="text-slate-300">Password</Label>
-              <Input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="bg-slate-700/50 border-slate-600 text-white"
-                placeholder="Enter password"
-              />
+              <div className="relative">
+                <Input
+                  type={showFormPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className="bg-slate-700/50 border-slate-600 text-white pr-10"
+                  placeholder="Enter password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowFormPassword(!showFormPassword)}
+                >
+                  {showFormPassword ? (
+                    <EyeOff className="h-4 w-4 text-slate-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-slate-400" />
+                  )}
+                </Button>
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <input
@@ -201,7 +218,10 @@ const UsersTab = () => {
               <Button onClick={saveUser} className="bg-green-600 hover:bg-green-700">
                 Create User
               </Button>
-              <Button variant="outline" onClick={() => setShowAddForm(false)}>
+              <Button variant="outline" onClick={() => {
+                setShowAddForm(false);
+                setShowFormPassword(false);
+              }}>
                 Cancel
               </Button>
             </div>
